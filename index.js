@@ -4,6 +4,7 @@ const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
+require('dotenv').config();
 const port = 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri =
@@ -42,7 +43,7 @@ const verifyCookie = (req, res, next) => {
     return res.status(401).json({ message: "UnAuthorize" });
   }
 
-  jwt.verify(token, "rahimbadsa", (err, decoded) => {
+  jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
     if (err) {
       return res.status(401).json({ message: "token is not valid" });
     }
@@ -115,7 +116,7 @@ async function run() {
     app.post("/jwt", (req, res) => {
       const user = req.body;
 
-      const token = jwt.sign(user, "rahimbadsa", { expiresIn: "1h" });
+      const token = jwt.sign(user,  process.env.SECRET_KEY, { expiresIn: "1h" });
 
       res.cookie("token", token, {
         httpOnly: false,
