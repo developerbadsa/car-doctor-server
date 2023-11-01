@@ -28,12 +28,29 @@ const client = new MongoClient(uri, {
   },
 });
 
-const logger = (req, res, next)=>{
-  console.log(req.method)
-}
+const logger = (req, res, next) => {
+  // console.log(req.method, req.url)
 
+  next();
+};
 
+const verifyCookie = (req, res, next) => {
+  const token = req?.cookies?.token;
+  console.log(token);
 
+  if (!token) {
+    return res.status(401).json({ message: "UnAuthorize" });
+  }
+
+  jwt.verify(token, "rahimbadsa", (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: "token is not valid" });
+    }
+    // console.log('decccccc',decoded)
+    req.user = decoded;
+    next();
+  });
+};
 
 async function run() {
   try {
@@ -63,12 +80,18 @@ async function run() {
       res.send(specificsService);
     });
 
-    app.get("/booking", async (req, res) => {
+    //===================================================
+    //===================================================
+    app.get("/booking", logger, verifyCookie, async (req, res) => {
       const queryParams = req.query;
 
       try {
-        const result = await bookingDB.find(queryParams).toArray();
-        res.send(result);
+        if (queryParams.email === req.user.email) {
+          const result = await bookingDB.find(queryParams).toArray();
+          res.send(result);
+        }
+        console.log(queryParams.email);
+        console.log(req.user.email);
       } catch (err) {}
     });
 
@@ -77,7 +100,6 @@ async function run() {
       const bookingObj = req.body;
 
       const result = await bookingDB.insertOne(bookingObj);
-
       res.send(result);
     });
 
@@ -96,7 +118,6 @@ async function run() {
       const token = jwt.sign(user, "rahimbadsa", { expiresIn: "1h" });
 
       res.cookie("token", token, {
-        expires: new Date(Date.now() + 1000),
         httpOnly: false,
         secure: true,
         sameSite: "none",
