@@ -1,15 +1,23 @@
 const express = require("express");
 const app = express();
-const bodyParser = require('body-parser');
+const bodyParser = require("body-parser");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const port = 3000;
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri =
   "mongodb+srv://rahimbadsa723:7sHVqE9KSs17rNWF@cluster0.htd2adh.mongodb.net/?retryWrites=true&w=majority";
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -18,8 +26,14 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
+});
+
+const logger = (req, res, next)=>{
+  console.log(req.method)
 }
-);
+
+
+
 
 async function run() {
   try {
@@ -39,68 +53,73 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/services/:id", async(req, res) => {
-      const id = req.params.id
+    app.get("/services/:id", async (req, res) => {
+      const id = req.params.id;
 
-      const query = {_id: id}
+      const query = { _id: id };
 
-      const specificsService = await servicesDB.findOne(query)
-    
-      res.send(specificsService)
-    })
+      const specificsService = await servicesDB.findOne(query);
 
+      res.send(specificsService);
+    });
 
+    app.get("/booking", async (req, res) => {
+      const queryParams = req.query;
 
-
-    app.get('/booking', async(req, res)=>{
-      const queryParams = req.query
-
-     try{
-      const result = await bookingDB.find(queryParams ).toArray()
-      console.log(result)
-      //  res.send(result)
-     }catch (err){
-      console.log("error happened",)
-     }
-
-
-    })
-    
-
-
-
-
-
-
-
+      try {
+        const result = await bookingDB.find(queryParams).toArray();
+        res.send(result);
+      } catch (err) {}
+    });
 
     //post requests
-    app.post('/booking', async(req, res)=>{
-      const bookingObj = req.body
+    app.post("/booking", async (req, res) => {
+      const bookingObj = req.body;
 
-      const result = await bookingDB.insertOne(bookingObj)
+      const result = await bookingDB.insertOne(bookingObj);
 
-      console.log(result)
-      res.send(result)
-    })
+      res.send(result);
+    });
 
+    //delete from booked list
+    app.delete("/booking/:id", async (req, res) => {
+      const id = req.params.id;
 
+      const query = { _id: new ObjectId(id) };
+      const result = await bookingDB.deleteOne(query);
+      res.send(result);
+    });
 
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
 
+      const token = jwt.sign(user, "rahimbadsa", { expiresIn: "1h" });
 
+      res.cookie("token", token, {
+        expires: new Date(Date.now() + 1000),
+        httpOnly: false,
+        secure: true,
+        sameSite: "none",
+      });
 
+      res.send("server");
+    });
 
-
-
-
-
-
-
-
-
-
-
-
+    app.post("/logout", (req, res) => {
+      if (req.cookies.token) {
+        // Clear the 'token' cookie with matching path and domain
+        res.clearCookie("token", {
+          httpOnly: false, // Make sure this matches how you set the cookie
+          secure: true, // Make sure this matches how you set the cookie
+          sameSite: "none", // Make sure this matches how you set the cookie
+        });
+        console.log("Cookie deleted");
+        res.send("Logout successful"); // Respond to the client
+      } else {
+        console.log("No token cookie found.");
+        res.send("No token cookie found."); // Respond to the client
+      }
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
